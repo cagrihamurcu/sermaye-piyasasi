@@ -2,113 +2,87 @@ import time
 import streamlit as st
 import pandas as pd
 
-st.set_page_config(
-    page_title="Halka Arz Arenası",
-    page_icon="📈",
-    layout="wide"
-)
+st.set_page_config(page_title="Halka Arz Arenası", page_icon="📈", layout="wide")
 
-NEWS_INTERVAL = 5  # saniye
+EVENT_INTERVAL = 7  # seconds
+STARTING_CASH = 100_000.0
 
-# -------------------------------------------------
-# Stil
-# -------------------------------------------------
 st.markdown("""
 <style>
-.hero {
-    padding: 28px;
-    border-radius: 26px;
-    background: linear-gradient(135deg, #0f172a 0%, #1d4ed8 45%, #06b6d4 100%);
-    color: white;
-    margin-bottom: 20px;
-    box-shadow: 0 14px 30px rgba(0,0,0,0.16);
+:root {
+    --bg: #0b1220;
+    --panel: #111827;
+    --panel-2: #182133;
+    --line: #263247;
+    --text: #e5e7eb;
+    --muted: #94a3b8;
+    --accent: #60a5fa;
 }
-.hero h1 { margin: 0; }
+
+.stApp {
+    background: linear-gradient(180deg, #0b1220 0%, #0f172a 100%);
+}
+
+.hero {
+    padding: 24px;
+    border-radius: 22px;
+    background: linear-gradient(135deg, #111827 0%, #1f2937 55%, #0f172a 100%);
+    color: var(--text);
+    border: 1px solid var(--line);
+    box-shadow: 0 12px 28px rgba(0,0,0,0.24);
+    margin-bottom: 18px;
+}
+.hero h1 { margin: 0; font-size: 1.9rem; }
 
 .company-card {
-    padding: 22px;
-    border-radius: 22px;
-    color: white;
-    min-height: 235px;
-    box-shadow: 0 14px 24px rgba(0,0,0,0.14);
+    padding: 20px;
+    border-radius: 18px;
+    color: var(--text);
+    min-height: 230px;
+    border: 1px solid var(--line);
+    box-shadow: 0 12px 24px rgba(0,0,0,0.18);
 }
 
 .metric-box {
     padding: 14px;
     border-radius: 16px;
-    background: #f8fafc;
-    border: 1px solid #e2e8f0;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid var(--line);
     text-align: center;
-    box-shadow: 0 4px 10px rgba(0,0,0,0.04);
+    color: var(--text);
 }
 .metric-value {
-    font-size: 1.8rem;
+    font-size: 1.5rem;
     font-weight: 700;
-    color: #0f172a;
 }
 .metric-label {
-    color: #64748b;
-    font-size: 0.92rem;
+    font-size: 0.9rem;
+    color: var(--muted);
 }
 
-.news-good, .news-bad, .news-neutral {
-    padding: 14px;
-    border-radius: 14px;
-    margin-bottom: 10px;
-    border: 1px solid transparent;
-}
-.news-good {
-    background: #ecfdf5;
-    border-color: #a7f3d0;
-}
-.news-bad {
-    background: #fef2f2;
-    border-color: #fecaca;
-}
-.news-neutral {
-    background: #eff6ff;
-    border-color: #bfdbfe;
-}
-
-.big-news {
-    padding: 18px;
-    border-radius: 18px;
-    background: white;
-    border-left: 8px solid #2563eb;
-    box-shadow: 0 8px 18px rgba(0,0,0,0.05);
+.panel {
+    padding: 16px;
+    border-radius: 16px;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid var(--line);
+    color: var(--text);
     margin-bottom: 14px;
 }
 
-.end-good, .end-mid, .end-bad {
-    padding: 20px;
-    border-radius: 18px;
-    color: white;
-    font-weight: 500;
-}
-.end-good {
-    background: linear-gradient(135deg, #059669, #10b981);
-}
-.end-mid {
-    background: linear-gradient(135deg, #d97706, #f59e0b);
-}
-.end-bad {
-    background: linear-gradient(135deg, #b91c1c, #ef4444);
-}
-
-.ticker-wrap {
+.news-ticker {
     overflow: hidden;
     white-space: nowrap;
-    background: #0f172a;
-    color: white;
     border-radius: 14px;
+    background: #0f172a;
+    border: 1px solid var(--line);
+    color: var(--text);
     padding: 12px 0;
-    margin-bottom: 16px;
-    box-shadow: 0 8px 18px rgba(0,0,0,0.10);
+    margin-bottom: 14px;
 }
-.ticker-text {
+.news-ticker span {
     display: inline-block;
     padding-left: 100%;
-    animation: ticker 14s linear infinite;
+    animation: ticker 18s linear infinite;
     font-weight: 600;
 }
 @keyframes ticker {
@@ -116,148 +90,131 @@ st.markdown("""
     100% { transform: translateX(-100%); }
 }
 
-.action-log {
+.current-news {
+    padding: 18px;
+    border-radius: 16px;
+    background: #ffffff;
+    color: #0f172a;
+    border-left: 8px solid #2563eb;
+    box-shadow: 0 8px 18px rgba(0,0,0,0.08);
+    margin-bottom: 14px;
+}
+
+.feed-item {
     padding: 12px 14px;
     border-radius: 12px;
-    background: #f8fafc;
-    border: 1px solid #e2e8f0;
+    background: rgba(255,255,255,0.03);
+    border: 1px solid var(--line);
+    color: var(--text);
     margin-bottom: 8px;
 }
+
+.end-good, .end-mid, .end-bad {
+    padding: 18px;
+    border-radius: 16px;
+    color: white;
+    margin-top: 10px;
+}
+.end-good { background: linear-gradient(135deg, #047857, #10b981); }
+.end-mid { background: linear-gradient(135deg, #b45309, #f59e0b); }
+.end-bad { background: linear-gradient(135deg, #991b1b, #ef4444); }
 </style>
 """, unsafe_allow_html=True)
 
-# -------------------------------------------------
-# Veri
-# -------------------------------------------------
 companies = {
     "A": {
-        "name": "Anka Gıda A.Ş.",
-        "color_1": "#059669",
-        "color_2": "#065f46",
-        "tagline": "Dengeli büyüme, kontrollü halka arz.",
-        "story": """
-Yeni üretim hattı ve kapasite artışı için halka arza çıkıyor.
-Sunum dili daha dengeli ve ölçülü.
-        """,
+        "name": "Marmara Ambalaj Sanayi A.Ş.",
+        "c1": "#1f2937",
+        "c2": "#334155",
+        "tagline": "Üretim kapasitesi artışı için halka arz",
+        "story": "Ambalaj üretiminde kapasite artırımı ve ihracat kanalını büyütme hedefiyle halka arza çıkıyor.",
         "balance_sheet": pd.DataFrame({
-            "Kalem": [
-                "Nakit ve Benzerleri",
-                "Kısa Vadeli Borç",
-                "Uzun Vadeli Borç",
-                "Özkaynak",
-                "Net Kâr",
-                "Cari Oran",
-                "Borç / Özkaynak"
-            ],
-            "Değer": [
-                "420 milyon TL",
-                "180 milyon TL",
-                "260 milyon TL",
-                "1,150 milyar TL",
-                "210 milyon TL",
-                "1.85",
-                "0.38"
-            ]
+            "Kalem": ["Nakit ve Benzerleri", "Kısa Vadeli Borç", "Uzun Vadeli Borç", "Özkaynak", "Net Kâr", "Cari Oran", "Borç / Özkaynak"],
+            "Değer": ["420 mn TL", "180 mn TL", "260 mn TL", "1.150 mn TL", "210 mn TL", "1.85", "0.38"]
         }),
-        "news": [
-            {"phase": "Halka arz öncesi", "cls": "news-neutral", "headline": "Yeni üretim hattı planı açıklandı.", "impact": 2},
-            {"phase": "Talep dönemi", "cls": "news-good", "headline": "Fiyat aralığına dengeli talep geldi.", "impact": 1},
-            {"phase": "İlk işlem günü", "cls": "news-neutral", "headline": "Hisse sakin ama güçlü açıldı.", "impact": 2},
-            {"phase": "Hafta 1", "cls": "news-good", "headline": "Yatırım takviminin planlandığı açıklandı.", "impact": 3},
-            {"phase": "Hafta 2", "cls": "news-good", "headline": "Operasyonel görünüm güçlü kaldı.", "impact": 4},
-            {"phase": "Ay sonu", "cls": "news-good", "headline": "Piyasa şirketi olumlu fiyatlamaya devam etti.", "impact": 4},
+        "income": pd.DataFrame({
+            "Kalem": ["Hasılat", "Brüt Kâr", "Esas Faaliyet Kârı", "FAVÖK", "Net Kâr Marjı"],
+            "Değer": ["2.480 mn TL", "610 mn TL", "295 mn TL", "362 mn TL", "%8.5"]
+        }),
+        "events": [
+            {"time": "09:30", "headline": "Talep toplama sonuçları açıklandı; dağıtım dengeli gerçekleşti.", "impact": 1.4},
+            {"time": "10:45", "headline": "Şirket üretim hattı yatırım takvimini paylaştı.", "impact": 0.9},
+            {"time": "12:05", "headline": "Aracı kurum istikrar işlemleri çerçevesini duyurdu.", "impact": 0.4},
+            {"time": "13:40", "headline": "Yeni tedarik sözleşmesine ilişkin açıklama yayımlandı.", "impact": 1.6},
+            {"time": "15:10", "headline": "Yıl sonu kapasite kullanım beklentisi korundu.", "impact": 1.1},
+            {"time": "16:20", "headline": "Seans sonu değerlendirmesinde nakit yaratımına vurgu yapıldı.", "impact": 0.7},
         ],
     },
     "B": {
-        "name": "Lima Teknoloji A.Ş.",
-        "color_1": "#dc2626",
-        "color_2": "#7f1d1d",
-        "tagline": "Agresif büyüme söylemi, güçlü heyecan.",
-        "story": """
-Çok etkileyici bir halka arz anlatımı var.
-Pazar fırsatları büyük gösteriliyor, anlatım dili son derece iddialı.
-        """,
+        "name": "Delta Veri Çözümleri A.Ş.",
+        "c1": "#111827",
+        "c2": "#1e3a8a",
+        "tagline": "Hızlı büyüme ve ölçeklenme hikâyesi",
+        "story": "Yazılım ve veri çözümleri alanında büyüme anlatısıyla halka arza çıkıyor.",
         "balance_sheet": pd.DataFrame({
-            "Kalem": [
-                "Nakit ve Benzerleri",
-                "Kısa Vadeli Borç",
-                "Uzun Vadeli Borç",
-                "Özkaynak",
-                "Net Kâr / Zarar",
-                "Cari Oran",
-                "Borç / Özkaynak"
-            ],
-            "Değer": [
-                "95 milyon TL",
-                "640 milyon TL",
-                "980 milyon TL",
-                "310 milyon TL",
-                "-145 milyon TL",
-                "0.72",
-                "5.23"
-            ]
+            "Kalem": ["Nakit ve Benzerleri", "Kısa Vadeli Borç", "Uzun Vadeli Borç", "Özkaynak", "Net Kâr / Zarar", "Cari Oran", "Borç / Özkaynak"],
+            "Değer": ["95 mn TL", "640 mn TL", "980 mn TL", "310 mn TL", "-145 mn TL", "0.72", "5.23"]
         }),
-        "news": [
-            {"phase": "Halka arz öncesi", "cls": "news-good", "headline": "Şirket agresif büyüme hedeflerini öne çıkardı.", "impact": 6},
-            {"phase": "Talep dönemi", "cls": "news-good", "headline": "Piyasada yüksek talep beklentisi oluştu.", "impact": 7},
-            {"phase": "İlk işlem günü", "cls": "news-good", "headline": "Hisse güçlü açıldı, ilgi yüksekti.", "impact": 5},
-            {"phase": "Hafta 1", "cls": "news-neutral", "headline": "Borç yapısına dair soru işaretleri arttı.", "impact": -10},
-            {"phase": "Hafta 2", "cls": "news-bad", "headline": "Halka arz gelirinin önemli kısmının borç baskısını hafiflettiği konuşuldu.", "impact": -18},
-            {"phase": "Ay sonu", "cls": "news-bad", "headline": "Şirket zarar açıkladı; hissede sert satış görüldü.", "impact": -25},
+        "income": pd.DataFrame({
+            "Kalem": ["Hasılat", "Brüt Kâr", "Esas Faaliyet Kârı", "FAVÖK", "Net Kâr Marjı"],
+            "Değer": ["1.180 mn TL", "342 mn TL", "58 mn TL", "96 mn TL", "-%12.3"]
+        }),
+        "events": [
+            {"time": "09:30", "headline": "Talep toplama sonuçları açıklandı; ilk ilgi güçlü göründü.", "impact": 1.9},
+            {"time": "10:45", "headline": "Yönetim hızlı büyüme hedeflerini yineledi.", "impact": 0.8},
+            {"time": "12:05", "headline": "Kısa vadeli finansal borçlara ilişkin sorular öne çıktı.", "impact": -3.2},
+            {"time": "13:40", "headline": "Halka arz gelirinin kullanım dağılımına ilişkin ek açıklama geldi.", "impact": -4.6},
+            {"time": "15:10", "headline": "İlk çeyrek marj beklentileri aşağı yönlü güncellendi.", "impact": -5.4},
+            {"time": "16:20", "headline": "Yönetim net borç azaltımına odaklanacağını belirtti.", "impact": -2.1},
         ],
     },
 }
 
-# -------------------------------------------------
-# State
-# -------------------------------------------------
-defaults = {
-    "viewed_a": False,
-    "viewed_b": False,
+state_defaults = {
     "selected": None,
     "started": False,
+    "finished": False,
     "news_step": 0,
     "price_history": [100.0],
-    "timeline": ["Başlangıç"],
+    "timeline": ["09:00"],
     "shown_news": [],
-    "cash": 100.0,
-    "shares": 0.0,
-    "action_done": False,
+    "cash": STARTING_CASH,
+    "shares": 0,
+    "avg_cost": 0.0,
     "trade_log": [],
-    "finished": False,
-    "last_advance_ts": None,
+    "viewed_a": False,
+    "viewed_b": False,
+    "last_event_ts": None,
 }
-for key, value in defaults.items():
-    if key not in st.session_state:
-        st.session_state[key] = value
+for k, v in state_defaults.items():
+    if k not in st.session_state:
+        st.session_state[k] = v
 
-# -------------------------------------------------
-# Yardımcılar
-# -------------------------------------------------
+
 def reset_game():
-    st.session_state.selected = None
-    st.session_state.started = False
-    st.session_state.news_step = 0
-    st.session_state.price_history = [100.0]
-    st.session_state.timeline = ["Başlangıç"]
-    st.session_state.shown_news = []
-    st.session_state.cash = 100.0
-    st.session_state.shares = 0.0
-    st.session_state.action_done = False
-    st.session_state.trade_log = []
-    st.session_state.finished = False
-    st.session_state.last_advance_ts = None
+    for k, v in state_defaults.items():
+        st.session_state[k] = v if not isinstance(v, list) else v.copy()
+
 
 def selected_company():
-    if st.session_state.selected is None:
-        return None
-    return companies[st.session_state.selected]
+    return companies.get(st.session_state.selected)
+
 
 def current_price():
     return st.session_state.price_history[-1]
 
-def portfolio_value():
-    return round(st.session_state.cash + (st.session_state.shares * current_price()), 2)
+
+def market_value():
+    return st.session_state.shares * current_price()
+
+
+def unrealized_pnl():
+    return market_value() - (st.session_state.shares * st.session_state.avg_cost)
+
+
+def equity_value():
+    return st.session_state.cash + market_value()
+
 
 def viewed_selected_balance():
     if st.session_state.selected == "A":
@@ -266,270 +223,235 @@ def viewed_selected_balance():
         return st.session_state.viewed_b
     return False
 
-def render_ticker():
-    if not st.session_state.shown_news:
-        return ""
-    current_headline = st.session_state.shown_news[-1]["headline"]
-    return f"""
-    <div class="ticker-wrap">
-        <div class="ticker-text">SON DAKİKA • {current_headline} • {current_headline} •</div>
-    </div>
-    """
 
-def render_feed_html():
-    html = ""
-    for item in st.session_state.shown_news:
-        html += f'<div class="{item["cls"]}"><b>{item["phase"]}</b><br>{item["headline"]}</div>'
-    return html
-
-def price_chart_df():
-    return pd.DataFrame({
-        "Zaman": st.session_state.timeline,
-        "Fiyat": st.session_state.price_history
-    }).set_index("Zaman")
-
-def reveal_next_news():
+def reveal_next_event():
     company = selected_company()
-    if company is None:
+    if company is None or st.session_state.finished:
         return
-
-    if st.session_state.news_step >= len(company["news"]):
+    idx = st.session_state.news_step
+    if idx >= len(company["events"]):
         st.session_state.finished = True
         return
 
-    next_news = company["news"][st.session_state.news_step]
-    new_price = round(current_price() * (1 + next_news["impact"] / 100), 2)
+    event = company["events"][idx]
+    prev = current_price()
+    new_price = round(max(1.0, prev * (1 + event["impact"] / 100)), 2)
 
-    st.session_state.shown_news.append(next_news)
     st.session_state.price_history.append(new_price)
-    st.session_state.timeline.append(next_news["phase"])
+    st.session_state.timeline.append(event["time"])
+    st.session_state.shown_news.append(event)
     st.session_state.news_step += 1
-    st.session_state.action_done = False
-    st.session_state.last_advance_ts = time.time()
+    st.session_state.last_event_ts = time.time()
 
-def buy_all():
-    if st.session_state.cash > 0:
-        st.session_state.shares += st.session_state.cash / current_price()
-        st.session_state.trade_log.append(f"AL — {current_price():.2f}")
-        st.session_state.cash = 0.0
-    else:
-        st.session_state.trade_log.append(f"AL — {current_price():.2f} (pozisyon zaten açık)")
-    st.session_state.action_done = True
+    if st.session_state.news_step >= len(company["events"]):
+        # one last window for trading after final event
+        pass
 
-def sell_all():
-    if st.session_state.shares > 0:
-        st.session_state.cash += st.session_state.shares * current_price()
-        st.session_state.trade_log.append(f"SAT — {current_price():.2f}")
-        st.session_state.shares = 0.0
-    else:
-        st.session_state.trade_log.append(f"SAT — {current_price():.2f} (elde hisse yok)")
-    st.session_state.action_done = True
 
-def hold_position():
-    st.session_state.trade_log.append(f"BEKLE — {current_price():.2f}")
-    st.session_state.action_done = True
+def execute_buy(qty: int):
+    price = current_price()
+    cost = qty * price
+    if qty <= 0:
+        return
+    if cost > st.session_state.cash:
+        st.session_state.trade_log.append(f"AL RED — {qty} lot için nakit yetersiz ({price:.2f}).")
+        return
+
+    old_qty = st.session_state.shares
+    old_cost = st.session_state.avg_cost
+    new_qty = old_qty + qty
+    new_avg = ((old_qty * old_cost) + cost) / new_qty if new_qty > 0 else 0.0
+
+    st.session_state.cash -= cost
+    st.session_state.shares = new_qty
+    st.session_state.avg_cost = round(new_avg, 4)
+    st.session_state.trade_log.append(f"AL — {qty} lot @ {price:.2f}")
+
+
+def execute_sell(qty: int):
+    price = current_price()
+    if qty <= 0:
+        return
+    if qty > st.session_state.shares:
+        st.session_state.trade_log.append(f"SAT RED — {qty} lot için elde yeterli hisse yok ({price:.2f}).")
+        return
+
+    st.session_state.cash += qty * price
+    st.session_state.shares -= qty
+    if st.session_state.shares == 0:
+        st.session_state.avg_cost = 0.0
+    st.session_state.trade_log.append(f"SAT — {qty} lot @ {price:.2f}")
+
+
+def ticker_html():
+    if not st.session_state.shown_news:
+        return ""
+    joined = " • ".join([n["headline"] for n in st.session_state.shown_news[-3:]])
+    return f'<div class="news-ticker"><span>SON DAKİKA • {joined} •</span></div>'
+
+
+def feed_html():
+    html = ""
+    for item in reversed(st.session_state.shown_news):
+        html += f'<div class="feed-item"><b>{item["time"]}</b><br>{item["headline"]}</div>'
+    return html
+
 
 def ending_block():
-    final_value = portfolio_value()
-    selected = st.session_state.selected
+    val = equity_value()
+    key = st.session_state.selected
+    if key == "B" and not viewed_selected_balance() and val < STARTING_CASH:
+        return ("end-bad", "Sürpriz Son", "Fiyat akışı pozisyonunu belirgin biçimde aşağı taşıdı.")
+    if key == "B" and viewed_selected_balance():
+        return ("end-mid", "Agresif Son", "Riskli hikâye seans boyunca fiyat üzerinde baskı yarattı.")
+    if key == "A" and val >= STARTING_CASH:
+        return ("end-good", "Dengeli Son", "Akış daha istikrarlı kaldı; fiyat seans boyunca korunabildi.")
+    return ("end-mid", "Karışık Sonuç", "Haber akışı ve işlemler birlikte sonucu belirledi.")
 
-    if selected == "B" and not viewed_selected_balance() and final_value < 100:
-        return ("end-bad", "Sürpriz Son", "Haber akışı ilerledikçe seçimin sert biçimde bozuldu.")
-    if selected == "B" and viewed_selected_balance():
-        return ("end-mid", "Agresif Son", "Seçimin, sonraki haberlerle baskı altında kaldı.")
-    if selected == "A" and final_value >= 100:
-        return ("end-good", "Dengeli Son", "Haber akışı fiyatı daha dengeli taşıdı.")
-    return ("end-mid", "Karışık Sonuç", "Haberler ve hamlelerin birlikte sonucu belirledi.")
 
-# -------------------------------------------------
-# Otomatik akan fragment
-# -------------------------------------------------
 @st.fragment(run_every="1s")
-def live_fragment():
+def market_fragment():
     company = selected_company()
     if company is None or not st.session_state.started:
         return
 
-    if not st.session_state.finished and st.session_state.last_advance_ts is not None:
-        elapsed = time.time() - st.session_state.last_advance_ts
-
-        if elapsed >= NEWS_INTERVAL:
-            if st.session_state.news_step < len(company["news"]):
-                reveal_next_news()
+    now = time.time()
+    if not st.session_state.finished and st.session_state.last_event_ts is not None:
+        elapsed = now - st.session_state.last_event_ts
+        if elapsed >= EVENT_INTERVAL:
+            if st.session_state.news_step < len(company["events"]):
+                reveal_next_event()
                 st.rerun(scope="fragment")
             else:
                 st.session_state.finished = True
                 st.rerun(scope="fragment")
 
     remaining = 0
-    if st.session_state.last_advance_ts is not None and not st.session_state.finished:
-        remaining = max(0, NEWS_INTERVAL - int(time.time() - st.session_state.last_advance_ts))
+    if st.session_state.last_event_ts is not None and not st.session_state.finished:
+        remaining = max(0, EVENT_INTERVAL - int(now - st.session_state.last_event_ts))
 
-    st.markdown(render_ticker(), unsafe_allow_html=True)
+    st.markdown(ticker_html(), unsafe_allow_html=True)
 
-    m1, m2, m3, m4 = st.columns(4)
-    with m1:
-        st.markdown(f"""
-        <div class="metric-box">
-            <div class="metric-value">{company['name']}</div>
-            <div class="metric-label">Seçilen Şirket</div>
-        </div>
-        """, unsafe_allow_html=True)
-    with m2:
-        st.markdown(f"""
-        <div class="metric-box">
-            <div class="metric-value">{current_price():.2f}</div>
-            <div class="metric-label">Fiyat</div>
-        </div>
-        """, unsafe_allow_html=True)
-    with m3:
-        st.markdown(f"""
-        <div class="metric-box">
-            <div class="metric-value">{portfolio_value():.2f}</div>
-            <div class="metric-label">Portföy</div>
-        </div>
-        """, unsafe_allow_html=True)
-    with m4:
-        st.markdown(f"""
-        <div class="metric-box">
-            <div class="metric-value">{remaining}</div>
-            <div class="metric-label">Sonraki Habere Kalan</div>
-        </div>
-        """, unsafe_allow_html=True)
+    c1, c2, c3, c4, c5 = st.columns(5)
+    with c1:
+        st.markdown(f'<div class="metric-box"><div class="metric-value">{company["name"]}</div><div class="metric-label">Şirket</div></div>', unsafe_allow_html=True)
+    with c2:
+        st.markdown(f'<div class="metric-box"><div class="metric-value">{current_price():.2f}</div><div class="metric-label">Fiyat</div></div>', unsafe_allow_html=True)
+    with c3:
+        st.markdown(f'<div class="metric-box"><div class="metric-value">{st.session_state.cash:,.0f}</div><div class="metric-label">Nakit</div></div>', unsafe_allow_html=True)
+    with c4:
+        st.markdown(f'<div class="metric-box"><div class="metric-value">{st.session_state.shares}</div><div class="metric-label">Lot</div></div>', unsafe_allow_html=True)
+    with c5:
+        st.markdown(f'<div class="metric-box"><div class="metric-value">{remaining}</div><div class="metric-label">Sonraki Habere Kalan</div></div>', unsafe_allow_html=True)
 
-    if st.session_state.shown_news:
-        latest = st.session_state.shown_news[-1]
-        st.markdown(
-            f"""
-            <div class="big-news">
-                <h3 style="margin-top:0;">{latest['phase']}</h3>
-                <p style="font-size:1.05rem; margin-bottom:0;">{latest['headline']}</p>
-            </div>
-            """,
-            unsafe_allow_html=True
-        )
+    left, mid, right = st.columns([1.25, 1.55, 1.0])
 
-    st.line_chart(price_chart_df(), height=360)
+    with left:
+        if st.session_state.shown_news:
+            latest = st.session_state.shown_news[-1]
+            st.markdown(
+                f'<div class="current-news"><h3 style="margin-top:0;">{latest["time"]}</h3><p style="font-size:1.05rem; margin-bottom:0;">{latest["headline"]}</p></div>',
+                unsafe_allow_html=True,
+            )
+        st.markdown("### Haber Akışı")
+        st.markdown(feed_html(), unsafe_allow_html=True)
 
-    st.markdown("### Haber Akışı")
-    st.markdown(render_feed_html(), unsafe_allow_html=True)
+    with mid:
+        chart_df = pd.DataFrame({"Zaman": st.session_state.timeline, "Fiyat": st.session_state.price_history}).set_index("Zaman")
+        st.line_chart(chart_df, height=430)
+        pnl = unrealized_pnl()
+        st.markdown(f'<div class="panel"><b>Ortalama Maliyet:</b> {st.session_state.avg_cost:.2f}<br><b>Pozisyon Değeri:</b> {market_value():,.0f}<br><b>Gerçekleşmemiş K/Z:</b> {pnl:,.0f}</div>', unsafe_allow_html=True)
 
-    if not st.session_state.finished:
-        st.markdown("### Hamle")
-        a1, a2, a3 = st.columns(3)
-
-        with a1:
-            if st.button("AL", use_container_width=True, disabled=st.session_state.action_done):
-                buy_all()
+    with right:
+        st.markdown("### Emir Paneli")
+        qty = st.number_input("Lot", min_value=1, value=100, step=100, key="order_qty")
+        b1, b2 = st.columns(2)
+        with b1:
+            if st.button("AL", use_container_width=True, disabled=st.session_state.finished):
+                execute_buy(int(qty))
+                st.rerun(scope="fragment")
+        with b2:
+            if st.button("SAT", use_container_width=True, disabled=st.session_state.finished):
+                execute_sell(int(qty))
                 st.rerun(scope="fragment")
 
-        with a2:
-            if st.button("BEKLE", use_container_width=True, disabled=st.session_state.action_done):
-                hold_position()
-                st.rerun(scope="fragment")
+        if st.button("BEKLE", use_container_width=True, disabled=st.session_state.finished):
+            st.session_state.trade_log.append(f"BEKLE — {current_price():.2f}")
+            st.rerun(scope="fragment")
 
-        with a3:
-            if st.button("SAT", use_container_width=True, disabled=st.session_state.action_done):
-                sell_all()
-                st.rerun(scope="fragment")
-
-    if st.session_state.trade_log:
         st.markdown("### İşlem Geçmişi")
-        for item in reversed(st.session_state.trade_log[-6:]):
-            st.markdown(f'<div class="action-log">{item}</div>', unsafe_allow_html=True)
+        if st.session_state.trade_log:
+            for item in reversed(st.session_state.trade_log[-8:]):
+                st.markdown(f'<div class="action-log">{item}</div>', unsafe_allow_html=True)
+        else:
+            st.markdown('<div class="action-log">Henüz işlem yok.</div>', unsafe_allow_html=True)
 
     if st.session_state.finished:
         end_class, end_title, end_text = ending_block()
-        st.markdown("---")
-        st.markdown(f"""
-        <div class="{end_class}">
-            <h3 style="margin-top:0;">🏁 {end_title}</h3>
-            <p style="margin-bottom:0;">{end_text}</p>
-        </div>
-        """, unsafe_allow_html=True)
-
+        st.markdown(f'<div class="{end_class}"><h3 style="margin-top:0;">🏁 {end_title}</h3><p style="margin-bottom:0;">{end_text}</p></div>', unsafe_allow_html=True)
         st.markdown("### Yorum")
         if st.session_state.selected == "B" and not viewed_selected_balance():
-            st.error("Seçimin, ilerleyen haberlerle fiyat üzerinde sert baskı yarattı.")
+            st.error("Seans boyunca gelen açıklamalar fiyatı belirgin biçimde aşağı taşıdı.")
         elif st.session_state.selected == "B" and viewed_selected_balance():
-            st.warning("Fiyat akışı, seçiminin riskini zaman içinde açığa çıkardı.")
+            st.warning("Riskli hikâye, seans ilerledikçe fiyat üzerinde baskı oluşturdu.")
         else:
-            st.success("Haber akışı ve hamlelerin portföyü daha dengeli taşıdı.")
+            st.success("Seçilen hisse haber akışına karşı daha dayanıklı kaldı.")
 
         if st.button("Başa Dön", use_container_width=True):
             reset_game()
             st.rerun(scope="app")
 
-# -------------------------------------------------
-# Başlık
-# -------------------------------------------------
-st.markdown("""
-<div class="hero">
-    <h1>📈 Halka Arz Arenası</h1>
-</div>
-""", unsafe_allow_html=True)
 
-main_tab, balance_tab = st.tabs(["🎮 Oyun", "📑 Bilançolar"])
+st.markdown('<div class="hero"><h1>📈 Halka Arz Arenası</h1></div>', unsafe_allow_html=True)
 
-# -------------------------------------------------
-# Oyun
-# -------------------------------------------------
+main_tab, balance_tab = st.tabs(["🎮 Piyasa Ekranı", "📑 Finansallar"])
+
 with main_tab:
     if not st.session_state.started:
         left, right = st.columns(2)
-
         with left:
             a = companies["A"]
-            st.markdown(f"""
-            <div class="company-card" style="background: linear-gradient(135deg, {a["color_1"]}, {a["color_2"]});">
-                <h2>🟢 {a["name"]}</h2>
-                <p><b>{a["tagline"]}</b></p>
-                <p>{a["story"]}</p>
-            </div>
-            """, unsafe_allow_html=True)
-            if st.button(f"{a['name']} Seç", use_container_width=True):
+            st.markdown(
+                f'<div class="company-card" style="background: linear-gradient(135deg, {a["c1"]}, {a["c2"]});"><h2>{a["name"]}</h2><p><b>{a["tagline"]}</b></p><p>{a["story"]}</p></div>',
+                unsafe_allow_html=True,
+            )
+            if st.button(f'{a["name"]} Seç', use_container_width=True):
                 st.session_state.selected = "A"
                 st.rerun()
-
         with right:
             b = companies["B"]
-            st.markdown(f"""
-            <div class="company-card" style="background: linear-gradient(135deg, {b["color_1"]}, {b["color_2"]});">
-                <h2>🔴 {b["name"]}</h2>
-                <p><b>{b["tagline"]}</b></p>
-                <p>{b["story"]}</p>
-            </div>
-            """, unsafe_allow_html=True)
-            if st.button(f"{b['name']} Seç", use_container_width=True):
+            st.markdown(
+                f'<div class="company-card" style="background: linear-gradient(135deg, {b["c1"]}, {b["c2"]});"><h2>{b["name"]}</h2><p><b>{b["tagline"]}</b></p><p>{b["story"]}</p></div>',
+                unsafe_allow_html=True,
+            )
+            if st.button(f'{b["name"]} Seç', use_container_width=True):
                 st.session_state.selected = "B"
                 st.rerun()
 
         if st.session_state.selected is not None:
-            company = selected_company()
-            st.markdown("### Seçim")
-            st.markdown(f"**{company['name']}**")
-            if st.button("Akışı Başlat", use_container_width=True):
+            st.markdown(f"### Seçim\n**{selected_company()['name']}**")
+            if st.button("Seansı Başlat", use_container_width=True):
                 st.session_state.started = True
-                reveal_next_news()
+                reveal_next_event()
                 st.rerun()
-
     else:
-        live_fragment()
+        market_fragment()
 
-# -------------------------------------------------
-# Bilançolar
-# -------------------------------------------------
 with balance_tab:
     t1, t2 = st.tabs([companies["A"]["name"], companies["B"]["name"]])
-
     with t1:
+        st.markdown("### Bilanço")
         st.table(companies["A"]["balance_sheet"])
-        if st.button("İncelendi", key="mark_a"):
+        st.markdown("### Gelir Tablosu")
+        st.table(companies["A"]["income"])
+        if st.button("İncelendi", key="view_a"):
             st.session_state.viewed_a = True
             st.rerun()
-
     with t2:
+        st.markdown("### Bilanço")
         st.table(companies["B"]["balance_sheet"])
-        if st.button("İncelendi", key="mark_b"):
+        st.markdown("### Gelir Tablosu")
+        st.table(companies["B"]["income"])
+        if st.button("İncelendi", key="view_b"):
             st.session_state.viewed_b = True
             st.rerun()
