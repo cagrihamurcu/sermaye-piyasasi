@@ -8,6 +8,8 @@ st.set_page_config(
     layout="wide"
 )
 
+NEWS_INTERVAL = 5  # saniye
+
 # -------------------------------------------------
 # Stil
 # -------------------------------------------------
@@ -223,6 +225,7 @@ defaults = {
     "action_done": False,
     "trade_log": [],
     "finished": False,
+    "last_advance_ts": None,
 }
 for key, value in defaults.items():
     if key not in st.session_state:
@@ -243,6 +246,7 @@ def reset_game():
     st.session_state.action_done = False
     st.session_state.trade_log = []
     st.session_state.finished = False
+    st.session_state.last_advance_ts = None
 
 def selected_company():
     if st.session_state.selected is None:
@@ -288,15 +292,12 @@ def reveal_next_news():
     company = selected_company()
     if company is None:
         return
+
     if st.session_state.news_step >= len(company["news"]):
         st.session_state.finished = True
         return
 
     next_news = company["news"][st.session_state.news_step]
-
-    with st.spinner("Piyasa fiyatlıyor..."):
-        time.sleep(1.2)
-
     new_price = round(current_price() * (1 + next_news["impact"] / 100), 2)
 
     st.session_state.shown_news.append(next_news)
@@ -304,41 +305,28 @@ def reveal_next_news():
     st.session_state.timeline.append(next_news["phase"])
     st.session_state.news_step += 1
     st.session_state.action_done = False
-
-    if st.session_state.news_step >= len(company["news"]):
-        st.session_state.finished = True
+    st.session_state.last_advance_ts = time.time()
 
 def buy_all():
     if st.session_state.cash > 0:
-        shares_bought = st.session_state.cash / current_price()
-        st.session_state.shares += shares_bought
-        st.session_state.trade_log.append(
-            f"AL — {current_price():.2f} fiyattan pozisyon açıldı."
-        )
+        st.session_state.shares += st.session_state.cash / current_price()
+        st.session_state.trade_log.append(f"AL — {current_price():.2f}")
         st.session_state.cash = 0.0
     else:
-        st.session_state.trade_log.append(
-            f"AL — {current_price():.2f} seviyesinde ek alım yapılamadı."
-        )
+        st.session_state.trade_log.append(f"AL — {current_price():.2f} (pozisyon zaten açık)")
     st.session_state.action_done = True
 
 def sell_all():
     if st.session_state.shares > 0:
         st.session_state.cash += st.session_state.shares * current_price()
-        st.session_state.trade_log.append(
-            f"SAT — {current_price():.2f} fiyattan pozisyon kapatıldı."
-        )
+        st.session_state.trade_log.append(f"SAT — {current_price():.2f}")
         st.session_state.shares = 0.0
     else:
-        st.session_state.trade_log.append(
-            f"SAT — {current_price():.2f} seviyesinde elde hisse yoktu."
-        )
+        st.session_state.trade_log.append(f"SAT — {current_price():.2f} (elde hisse yok)")
     st.session_state.action_done = True
 
 def hold_position():
-    st.session_state.trade_log.append(
-        f"BEKLE — {current_price():.2f} seviyesinde pozisyon korunuyor."
-    )
+    st.session_state.trade_log.append(f"BEKLE — {current_price():.2f}")
     st.session_state.action_done = True
 
 def ending_block():
@@ -352,6 +340,125 @@ def ending_block():
     if selected == "A" and final_value >= 100:
         return ("end-good", "Dengeli Son", "Haber akışı fiyatı daha dengeli taşıdı.")
     return ("end-mid", "Karışık Sonuç", "Haberler ve hamlelerin birlikte sonucu belirledi.")
+
+# -------------------------------------------------
+# Otomatik akan fragment
+# -------------------------------------------------
+@st.fragment(run_every="1s")
+def live_fragment():
+    company = selected_company()
+    if company is None or not st.session_state.started:
+        return
+
+    if not st.session_state.finished and st.session_state.last_advance_ts is not None:
+        elapsed = time.time() - st.session_state.last_advance_ts
+
+        if elapsed >= NEWS_INTERVAL:
+            if st.session_state.news_step < len(company["news"]):
+                reveal_next_news()
+                st.rerun(scope="fragment")
+            else:
+                st.session_state.finished = True
+                st.rerun(scope="fragment")
+
+    remaining = 0
+    if st.session_state.last_advance_ts is not None and not st.session_state.finished:
+        remaining = max(0, NEWS_INTERVAL - int(time.time() - st.session_state.last_advance_ts))
+
+    st.markdown(render_ticker(), unsafe_allow_html=True)
+
+    m1, m2, m3, m4 = st.columns(4)
+    with m1:
+        st.markdown(f"""
+        <div class="metric-box">
+            <div class="metric-value">{company['name']}</div>
+            <div class="metric-label">Seçilen Şirket</div>
+        </div>
+        """, unsafe_allow_html=True)
+    with m2:
+        st.markdown(f"""
+        <div class="metric-box">
+            <div class="metric-value">{current_price():.2f}</div>
+            <div class="metric-label">Fiyat</div>
+        </div>
+        """, unsafe_allow_html=True)
+    with m3:
+        st.markdown(f"""
+        <div class="metric-box">
+            <div class="metric-value">{portfolio_value():.2f}</div>
+            <div class="metric-label">Portföy</div>
+        </div>
+        """, unsafe_allow_html=True)
+    with m4:
+        st.markdown(f"""
+        <div class="metric-box">
+            <div class="metric-value">{remaining}</div>
+            <div class="metric-label">Sonraki Habere Kalan</div>
+        </div>
+        """, unsafe_allow_html=True)
+
+    if st.session_state.shown_news:
+        latest = st.session_state.shown_news[-1]
+        st.markdown(
+            f"""
+            <div class="big-news">
+                <h3 style="margin-top:0;">{latest['phase']}</h3>
+                <p style="font-size:1.05rem; margin-bottom:0;">{latest['headline']}</p>
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
+
+    st.line_chart(price_chart_df(), height=360)
+
+    st.markdown("### Haber Akışı")
+    st.markdown(render_feed_html(), unsafe_allow_html=True)
+
+    if not st.session_state.finished:
+        st.markdown("### Hamle")
+        a1, a2, a3 = st.columns(3)
+
+        with a1:
+            if st.button("AL", use_container_width=True, disabled=st.session_state.action_done):
+                buy_all()
+                st.rerun(scope="fragment")
+
+        with a2:
+            if st.button("BEKLE", use_container_width=True, disabled=st.session_state.action_done):
+                hold_position()
+                st.rerun(scope="fragment")
+
+        with a3:
+            if st.button("SAT", use_container_width=True, disabled=st.session_state.action_done):
+                sell_all()
+                st.rerun(scope="fragment")
+
+    if st.session_state.trade_log:
+        st.markdown("### İşlem Geçmişi")
+        for item in reversed(st.session_state.trade_log[-6:]):
+            st.markdown(f'<div class="action-log">{item}</div>', unsafe_allow_html=True)
+
+    if st.session_state.finished:
+        end_class, end_title, end_text = ending_block()
+        st.markdown("---")
+        st.markdown(f"""
+        <div class="{end_class}">
+            <h3 style="margin-top:0;">🏁 {end_title}</h3>
+            <p style="margin-bottom:0;">{end_text}</p>
+        </div>
+        """, unsafe_allow_html=True)
+
+        st.markdown("### Yorum")
+        if st.session_state.selected == "B" and not viewed_selected_balance():
+            st.error("Seçimin, ilerleyen haberlerle fiyat üzerinde sert baskı yarattı.")
+        elif st.session_state.selected == "B" and viewed_selected_balance():
+            st.warning("Fiyat akışı, seçiminin riskini zaman içinde açığa çıkardı.")
+        else:
+            st.success("Haber akışı ve hamlelerin portföyü daha dengeli taşıdı.")
+
+        if st.button("Başa Dön", use_container_width=True):
+            reset_game()
+            st.rerun(scope="app")
 
 # -------------------------------------------------
 # Başlık
@@ -401,112 +508,13 @@ with main_tab:
             company = selected_company()
             st.markdown("### Seçim")
             st.markdown(f"**{company['name']}**")
-            if st.button("Başlat", use_container_width=True):
+            if st.button("Akışı Başlat", use_container_width=True):
                 st.session_state.started = True
                 reveal_next_news()
                 st.rerun()
 
     else:
-        company = selected_company()
-
-        st.markdown(render_ticker(), unsafe_allow_html=True)
-
-        m1, m2, m3, m4 = st.columns(4)
-        with m1:
-            st.markdown(f"""
-            <div class="metric-box">
-                <div class="metric-value">{company['name']}</div>
-                <div class="metric-label">Seçilen Şirket</div>
-            </div>
-            """, unsafe_allow_html=True)
-        with m2:
-            st.markdown(f"""
-            <div class="metric-box">
-                <div class="metric-value">{current_price():.2f}</div>
-                <div class="metric-label">Fiyat</div>
-            </div>
-            """, unsafe_allow_html=True)
-        with m3:
-            st.markdown(f"""
-            <div class="metric-box">
-                <div class="metric-value">{st.session_state.cash:.2f}</div>
-                <div class="metric-label">Nakit</div>
-            </div>
-            """, unsafe_allow_html=True)
-        with m4:
-            st.markdown(f"""
-            <div class="metric-box">
-                <div class="metric-value">{portfolio_value():.2f}</div>
-                <div class="metric-label">Portföy Değeri</div>
-            </div>
-            """, unsafe_allow_html=True)
-
-        if st.session_state.shown_news:
-            latest = st.session_state.shown_news[-1]
-            st.markdown(
-                f"""
-                <div class="big-news">
-                    <h3 style="margin-top:0;">{latest['phase']}</h3>
-                    <p style="font-size:1.05rem; margin-bottom:0;">{latest['headline']}</p>
-                </div>
-                """,
-                unsafe_allow_html=True
-            )
-
-        st.line_chart(price_chart_df(), height=360)
-
-        st.markdown("### Haber Akışı")
-        st.markdown(render_feed_html(), unsafe_allow_html=True)
-
-        st.markdown("### Hamle")
-        a1, a2, a3 = st.columns(3)
-
-        with a1:
-            if st.button("AL", use_container_width=True, disabled=st.session_state.action_done or st.session_state.finished):
-                buy_all()
-                st.rerun()
-
-        with a2:
-            if st.button("BEKLE", use_container_width=True, disabled=st.session_state.action_done or st.session_state.finished):
-                hold_position()
-                st.rerun()
-
-        with a3:
-            if st.button("SAT", use_container_width=True, disabled=st.session_state.action_done or st.session_state.finished):
-                sell_all()
-                st.rerun()
-
-        if st.session_state.trade_log:
-            st.markdown("### İşlem Geçmişi")
-            for item in reversed(st.session_state.trade_log[-6:]):
-                st.markdown(f'<div class="action-log">{item}</div>', unsafe_allow_html=True)
-
-        if not st.session_state.finished:
-            if st.session_state.action_done:
-                if st.button("Sonraki Haber", use_container_width=True):
-                    reveal_next_news()
-                    st.rerun()
-        else:
-            end_class, end_title, end_text = ending_block()
-            st.markdown("---")
-            st.markdown(f"""
-            <div class="{end_class}">
-                <h3 style="margin-top:0;">🏁 {end_title}</h3>
-                <p style="margin-bottom:0;">{end_text}</p>
-            </div>
-            """, unsafe_allow_html=True)
-
-            st.markdown("### Yorum")
-            if st.session_state.selected == "B" and not viewed_selected_balance():
-                st.error("Seçimin, ilerleyen haberlerle fiyat üzerinde sert baskı yarattı.")
-            elif st.session_state.selected == "B" and viewed_selected_balance():
-                st.warning("Fiyat akışı, seçiminin riskini zaman içinde açığa çıkardı.")
-            else:
-                st.success("Haber akışı ve hamlelerin portföyü daha dengeli taşıdı.")
-
-            if st.button("Başa Dön", use_container_width=True):
-                reset_game()
-                st.rerun()
+        live_fragment()
 
 # -------------------------------------------------
 # Bilançolar
