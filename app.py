@@ -1,3 +1,4 @@
+import time
 import streamlit as st
 import pandas as pd
 
@@ -28,15 +29,6 @@ st.markdown("""
     color: white;
     min-height: 235px;
     box-shadow: 0 14px 24px rgba(0,0,0,0.14);
-}
-
-.card {
-    padding: 18px;
-    border-radius: 18px;
-    background: white;
-    border: 1px solid #e5e7eb;
-    box-shadow: 0 8px 18px rgba(0,0,0,0.05);
-    margin-bottom: 14px;
 }
 
 .metric-box {
@@ -114,7 +106,7 @@ st.markdown("""
 .ticker-text {
     display: inline-block;
     padding-left: 100%;
-    animation: ticker 28s linear infinite;
+    animation: ticker 18s linear infinite;
     font-weight: 600;
 }
 @keyframes ticker {
@@ -131,8 +123,7 @@ defaults = {
     "viewed_a": False,
     "viewed_b": False,
     "selected": None,
-    "started": False,
-    "news_index": 0,
+    "played": False,
 }
 for key, value in defaults.items():
     if key not in st.session_state:
@@ -172,12 +163,12 @@ Sunum dili daha dengeli ve ölçülü.
             ]
         }),
         "news": [
-            {"time": "Öncesi -3", "cls": "news-neutral", "headline": "Yeni üretim hattı planı açıklandı.", "impact": 2},
-            {"time": "Öncesi -1", "cls": "news-good", "headline": "Halka arz fiyat aralığına dengeli talep geldi.", "impact": 1},
-            {"time": "İlk Gün", "cls": "news-neutral", "headline": "Hisse sakin ama güçlü açıldı.", "impact": 2},
-            {"time": "Gün 3", "cls": "news-good", "headline": "Yatırım takviminin planlandığı açıklandı.", "impact": 3},
-            {"time": "Gün 6", "cls": "news-good", "headline": "Operasyonel görünüm güçlü kaldı.", "impact": 4},
-            {"time": "Gün 8", "cls": "news-good", "headline": "Piyasa şirketi olumlu fiyatlamaya devam etti.", "impact": 4},
+            {"phase": "Halka arz öncesi", "cls": "news-neutral", "headline": "Yeni üretim hattı planı açıklandı.", "impact": 2},
+            {"phase": "Talep dönemi", "cls": "news-good", "headline": "Halka arz fiyat aralığına dengeli talep geldi.", "impact": 1},
+            {"phase": "İlk işlem günü", "cls": "news-neutral", "headline": "Hisse sakin ama güçlü açıldı.", "impact": 2},
+            {"phase": "Hafta 1", "cls": "news-good", "headline": "Yatırım takviminin planlandığı açıklandı.", "impact": 3},
+            {"phase": "Hafta 2", "cls": "news-good", "headline": "Operasyonel görünüm güçlü kaldı.", "impact": 4},
+            {"phase": "Ay sonu", "cls": "news-good", "headline": "Piyasa şirketi olumlu fiyatlamaya devam etti.", "impact": 4},
         ],
     },
     "B": {
@@ -210,12 +201,12 @@ Pazar fırsatları büyük gösteriliyor, anlatım dili son derece iddialı.
             ]
         }),
         "news": [
-            {"time": "Öncesi -3", "cls": "news-good", "headline": "Şirket agresif büyüme hedeflerini öne çıkardı.", "impact": 6},
-            {"time": "Öncesi -1", "cls": "news-good", "headline": "Piyasada yüksek talep beklentisi oluştu.", "impact": 7},
-            {"time": "İlk Gün", "cls": "news-good", "headline": "Hisse güçlü açıldı, ilgi yüksekti.", "impact": 5},
-            {"time": "Gün 3", "cls": "news-neutral", "headline": "Borç yapısına dair soru işaretleri arttı.", "impact": -10},
-            {"time": "Gün 6", "cls": "news-bad", "headline": "Halka arz gelirinin önemli kısmının borç baskısını hafiflettiği konuşuldu.", "impact": -18},
-            {"time": "Gün 8", "cls": "news-bad", "headline": "Şirket zarar açıkladı; hissede sert satış görüldü.", "impact": -25},
+            {"phase": "Halka arz öncesi", "cls": "news-good", "headline": "Şirket agresif büyüme hedeflerini öne çıkardı.", "impact": 6},
+            {"phase": "Talep dönemi", "cls": "news-good", "headline": "Piyasada yüksek talep beklentisi oluştu.", "impact": 7},
+            {"phase": "İlk işlem günü", "cls": "news-good", "headline": "Hisse güçlü açıldı, ilgi yüksekti.", "impact": 5},
+            {"phase": "Hafta 1", "cls": "news-neutral", "headline": "Borç yapısına dair soru işaretleri arttı.", "impact": -10},
+            {"phase": "Hafta 2", "cls": "news-bad", "headline": "Halka arz gelirinin önemli kısmının borç baskısını hafiflettiği konuşuldu.", "impact": -18},
+            {"phase": "Ay sonu", "cls": "news-bad", "headline": "Şirket zarar açıkladı; hissede sert satış görüldü.", "impact": -25},
         ],
     },
 }
@@ -223,65 +214,118 @@ Pazar fırsatları büyük gösteriliyor, anlatım dili son derece iddialı.
 # -------------------------------------------------
 # Yardımcılar
 # -------------------------------------------------
-def current_company():
+def selected_company():
     if st.session_state.selected is None:
         return None
     return companies[st.session_state.selected]
 
-def viewed_selected_balance():
+def selected_balance_viewed():
     if st.session_state.selected == "A":
         return st.session_state.viewed_a
     if st.session_state.selected == "B":
         return st.session_state.viewed_b
     return False
 
-def price_path(news_items, revealed_count):
+def build_state(company, step_count):
+    labels = ["Başlangıç"]
     prices = [100.0]
-    shown_news = news_items[:revealed_count]
+    shown_news = company["news"][:step_count]
+
     for item in shown_news:
-        next_price = round(prices[-1] * (1 + item["impact"] / 100), 2)
-        prices.append(next_price)
-    return prices
+        labels.append(item["phase"])
+        prices.append(round(prices[-1] * (1 + item["impact"] / 100), 2))
 
-def timeline_labels(revealed_count):
-    base = ["Başlangıç"]
-    if st.session_state.selected is None:
-        return base
-    company = current_company()
-    return base + [item["time"] for item in company["news"][:revealed_count]]
+    return labels, prices, shown_news
 
-def ending_block(selected_key, viewed_balance, final_price):
-    if selected_key == "B" and not viewed_balance:
-        return (
-            "end-bad",
-            "Sürpriz Son",
-            "Seçimin sonradan gelen haber akışıyla sert biçimde sarsıldı."
-        )
-    if selected_key == "B" and viewed_balance:
-        return (
-            "end-mid",
-            "Agresif Son",
-            "Veriyi görerek girdin; haber akışı seçiminin riskini büyüttü."
-        )
-    if selected_key == "A" and final_price >= 110:
-        return (
-            "end-good",
-            "Dengeli Son",
-            "Haber akışı fiyatı kademeli biçimde yukarı taşıdı."
-        )
-    return (
-        "end-mid",
-        "Karışık Sonuç",
-        "Seçimin haber akışına göre dalgalı bir sonuç üretti."
-    )
+def render_ticker(shown_news):
+    if not shown_news:
+        return ""
+    ticker_text = " • ".join([item["headline"] for item in shown_news])
+    return f"""
+    <div class="ticker-wrap">
+        <div class="ticker-text">SON DAKİKA • {ticker_text} •</div>
+    </div>
+    """
+
+def render_feed_html(shown_news):
+    html = ""
+    for item in shown_news:
+        html += f'<div class="{item["cls"]}"><b>{item["phase"]}</b><br>{item["headline"]}</div>'
+    return html
+
+def ending_block(company_key, viewed_balance, final_price):
+    if company_key == "B" and not viewed_balance:
+        return ("end-bad", "Sürpriz Son", "Seçimin sonradan gelen haberlerle sert biçimde bozuldu.")
+    if company_key == "B" and viewed_balance:
+        return ("end-mid", "Agresif Son", "Seçimin güçlü hikâyesini koruyamadı; haberler fiyatı aşağı çekti.")
+    if company_key == "A" and final_price >= 110:
+        return ("end-good", "Dengeli Son", "Haber akışı fiyatı kademeli biçimde yukarı taşıdı.")
+    return ("end-mid", "Karışık Sonuç", "Seçimin haber akışına göre dalgalı bir sonuç verdi.")
 
 def reset_game():
     st.session_state.selected = None
-    st.session_state.started = False
-    st.session_state.news_index = 0
+    st.session_state.played = False
+
+def autoplay_news(company):
+    ticker_ph = st.empty()
+    metrics_ph = st.empty()
+    current_news_ph = st.empty()
+    chart_ph = st.empty()
+    feed_title_ph = st.empty()
+    feed_ph = st.empty()
+
+    for step in range(1, len(company["news"]) + 1):
+        labels, prices, shown_news = build_state(company, step)
+        latest = shown_news[-1]
+
+        ticker_ph.markdown(render_ticker(shown_news), unsafe_allow_html=True)
+
+        c1, c2, c3 = metrics_ph.columns(3)
+        with c1:
+            st.markdown(f"""
+            <div class="metric-box">
+                <div class="metric-value">{company['name']}</div>
+                <div class="metric-label">Seçilen Şirket</div>
+            </div>
+            """, unsafe_allow_html=True)
+        with c2:
+            st.markdown(f"""
+            <div class="metric-box">
+                <div class="metric-value">{prices[-1]:.2f}</div>
+                <div class="metric-label">Güncel Fiyat Endeksi</div>
+            </div>
+            """, unsafe_allow_html=True)
+        with c3:
+            st.markdown(f"""
+            <div class="metric-box">
+                <div class="metric-value">{step}/{len(company['news'])}</div>
+                <div class="metric-label">Haber Akışı</div>
+            </div>
+            """, unsafe_allow_html=True)
+
+        current_news_ph.markdown(
+            f"""
+            <div class="big-news">
+                <h3 style="margin-top:0;">{latest['phase']}</h3>
+                <p style="font-size:1.05rem; margin-bottom:0;">{latest['headline']}</p>
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
+
+        chart_df = pd.DataFrame({
+            "Zaman": labels,
+            "Fiyat": prices,
+        }).set_index("Zaman")
+        chart_ph.line_chart(chart_df, height=380)
+
+        feed_title_ph.markdown("### Haber Akışı")
+        feed_ph.markdown(render_feed_html(shown_news), unsafe_allow_html=True)
+
+        time.sleep(1.4)
 
 # -------------------------------------------------
-# Hero
+# Başlık
 # -------------------------------------------------
 st.markdown("""
 <div class="hero">
@@ -289,16 +333,13 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-# -------------------------------------------------
-# Sekmeler
-# -------------------------------------------------
 main_tab, balance_tab = st.tabs(["🎮 Oyun", "📑 Bilançolar"])
 
 # -------------------------------------------------
-# OYUN
+# Oyun
 # -------------------------------------------------
 with main_tab:
-    if not st.session_state.started:
+    if not st.session_state.played:
         left, right = st.columns(2)
 
         with left:
@@ -328,36 +369,22 @@ with main_tab:
                 st.rerun()
 
         if st.session_state.selected is not None:
-            selected = current_company()
+            company = selected_company()
             st.markdown("### Seçim")
-            st.markdown(f"**{selected['name']}**")
-            if st.button("Yatırıma Başla", use_container_width=True):
-                st.session_state.started = True
-                st.session_state.news_index = 1
+            st.markdown(f"**{company['name']}**")
+            if st.button("Akışı Başlat", use_container_width=True):
+                autoplay_news(company)
+                st.session_state.played = True
                 st.rerun()
 
     else:
-        company = current_company()
-        shown_news = company["news"][:st.session_state.news_index]
-        prices = price_path(company["news"], st.session_state.news_index)
-        labels = timeline_labels(st.session_state.news_index)
-        current_price = prices[-1]
-        current_news = shown_news[-1] if shown_news else None
+        company = selected_company()
+        labels, prices, shown_news = build_state(company, len(company["news"]))
+        final_price = prices[-1]
 
-        # Haber bandı
-        if shown_news:
-            ticker_text = "   •   ".join([f"{n['time']} — {n['headline']}" for n in shown_news])
-            st.markdown(
-                f"""
-                <div class="ticker-wrap">
-                    <div class="ticker-text">SON DAKİKA • {ticker_text} •</div>
-                </div>
-                """,
-                unsafe_allow_html=True
-            )
+        st.markdown(render_ticker(shown_news), unsafe_allow_html=True)
 
-        # Üst metrikler
-        m1, m2, m3 = st.columns(3)
+        m1, m2 = st.columns(2)
         with m1:
             st.markdown(f"""
             <div class="metric-box">
@@ -368,87 +395,46 @@ with main_tab:
         with m2:
             st.markdown(f"""
             <div class="metric-box">
-                <div class="metric-value">{current_price:.2f}</div>
-                <div class="metric-label">Güncel Fiyat Endeksi</div>
-            </div>
-            """, unsafe_allow_html=True)
-        with m3:
-            st.markdown(f"""
-            <div class="metric-box">
-                <div class="metric-value">{st.session_state.news_index}/{len(company['news'])}</div>
-                <div class="metric-label">Akan Haber Sayısı</div>
+                <div class="metric-value">{final_price:.2f}</div>
+                <div class="metric-label">Final Fiyat Endeksi</div>
             </div>
             """, unsafe_allow_html=True)
 
-        # Son haber
-        if current_news:
-            st.markdown(
-                f"""
-                <div class="big-news">
-                    <h3 style="margin-top:0;">{current_news['time']}</h3>
-                    <p style="font-size:1.05rem; margin-bottom:0;">{current_news['headline']}</p>
-                </div>
-                """,
-                unsafe_allow_html=True
-            )
-
-        # Grafik
         chart_df = pd.DataFrame({
             "Zaman": labels,
             "Fiyat": prices,
         }).set_index("Zaman")
         st.line_chart(chart_df, height=380)
 
-        # Haber listesi
         st.markdown("### Haber Akışı")
-        for news_item in shown_news:
-            st.markdown(
-                f'<div class="{news_item["cls"]}"><b>{news_item["time"]}</b><br>{news_item["headline"]}</div>',
-                unsafe_allow_html=True
-            )
+        st.markdown(render_feed_html(shown_news), unsafe_allow_html=True)
 
-        # Oyun akışı
-        if st.session_state.news_index < len(company["news"]):
-            c1, c2 = st.columns([4, 1])
-            with c2:
-                if st.button("Sonraki Haber", use_container_width=True):
-                    st.session_state.news_index += 1
-                    st.rerun()
+        end_class, end_title, end_text = ending_block(
+            st.session_state.selected,
+            selected_balance_viewed(),
+            final_price
+        )
+        st.markdown(f"""
+        <div class="{end_class}">
+            <h3 style="margin-top:0;">🏁 {end_title}</h3>
+            <p style="margin-bottom:0;">{end_text}</p>
+        </div>
+        """, unsafe_allow_html=True)
+
+        st.markdown("### Yorum")
+        if st.session_state.selected == "B" and not selected_balance_viewed():
+            st.error("Seçimin, haber akışı ilerledikçe çok daha kırılgan hale geldi.")
+        elif st.session_state.selected == "B" and selected_balance_viewed():
+            st.warning("Fiyat, sonraki haberlerle seçiminin risk tarafını açığa çıkardı.")
         else:
-            final_price = prices[-1]
-            end_class, end_title, end_text = ending_block(
-                st.session_state.selected,
-                viewed_selected_balance(),
-                final_price
-            )
-            st.markdown("---")
-            st.markdown(f"""
-            <div class="{end_class}">
-                <h3 style="margin-top:0;">🏁 {end_title}</h3>
-                <p style="margin-bottom:0;">{end_text}</p>
-            </div>
-            """, unsafe_allow_html=True)
+            st.success("Haber akışı fiyatı daha dengeli bir patikada tuttu.")
 
-            st.markdown("### Yorum")
-            if st.session_state.selected == "B" and not viewed_selected_balance():
-                st.error("""
-Seçtiğin şirketin fiyatı, ilk heyecandan sonra gelen haberlerle sert biçimde çözüldü.
-                """)
-            elif st.session_state.selected == "B" and viewed_selected_balance():
-                st.warning("""
-Seçimin, baştan itibaren daha kırılgan bir hikâyeye dayanıyordu; sonraki haberler bunu fiyatlara taşıdı.
-                """)
-            else:
-                st.success("""
-Seçtiğin hissede haber akışı fiyatı kademeli biçimde destekledi.
-                """)
-
-            if st.button("Başa Dön", use_container_width=True):
-                reset_game()
-                st.rerun()
+        if st.button("Başa Dön", use_container_width=True):
+            reset_game()
+            st.rerun()
 
 # -------------------------------------------------
-# BİLANÇOLAR
+# Bilançolar
 # -------------------------------------------------
 with balance_tab:
     t1, t2 = st.tabs([companies["A"]["name"], companies["B"]["name"]])
