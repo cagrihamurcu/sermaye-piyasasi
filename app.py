@@ -1,13 +1,13 @@
 import streamlit as st
 
 st.set_page_config(
-    page_title="Halka Arz Süreci Uygulaması",
+    page_title="Halka Arz Süreci",
     page_icon="📈",
     layout="wide"
 )
 
 # -----------------------------
-# Sayfa stili
+# Stil
 # -----------------------------
 st.markdown("""
 <style>
@@ -18,245 +18,176 @@ st.markdown("""
     color: white;
     margin-bottom: 20px;
 }
-.card {
+.info-card {
     padding: 18px;
-    border-radius: 18px;
+    border-radius: 16px;
     background: #f8fafc;
     border: 1px solid #e2e8f0;
-    box-shadow: 0 4px 14px rgba(0,0,0,0.06);
-    margin-bottom: 12px;
+    margin-bottom: 14px;
 }
 .step-card {
-    padding: 20px;
+    padding: 24px;
     border-radius: 18px;
     background: white;
-    border-left: 6px solid #2563eb;
+    border-left: 8px solid #2563eb;
     box-shadow: 0 4px 14px rgba(0,0,0,0.06);
 }
-.small-title {
+.step-number {
+    font-size: 0.95rem;
     color: #64748b;
-    font-size: 0.9rem;
-    margin-bottom: 4px;
+    margin-bottom: 8px;
 }
-.big-value {
-    font-size: 1.35rem;
+.step-title {
+    font-size: 1.6rem;
     font-weight: 700;
     color: #0f172a;
+    margin-bottom: 12px;
+}
+.actor {
+    font-weight: 700;
+    color: #1d4ed8;
 }
 </style>
 """, unsafe_allow_html=True)
 
 # -----------------------------
-# Sidebar - firma bilgileri
+# Firma senaryosu
 # -----------------------------
-st.sidebar.header("Firma Senaryosu")
+firma_adi = "Nova Teknoloji A.Ş."
+fon_ihtiyaci = "250.000.000 TL"
+fon_amaci = "Yeni üretim hattı kurmak, kapasite artırmak ve teknoloji yatırımı yapmak"
 
-firma_adi = st.sidebar.text_input("Firma adı", value="Nova Teknoloji A.Ş.")
-sektor = st.sidebar.selectbox(
-    "Sektör",
-    ["Yazılım", "Üretim", "Enerji", "Lojistik", "Perakende"]
-)
-fon_ihtiyaci = st.sidebar.number_input(
-    "Fon ihtiyacı (TL)",
-    min_value=10_000_000,
-    max_value=5_000_000_000,
-    value=250_000_000,
-    step=10_000_000,
-)
-fon_amaci = st.sidebar.text_area(
-    "Fonun kullanım amacı",
-    value="Yeni üretim hattı kurmak, teknoloji yatırımı yapmak ve kapasite artırmak."
-)
-
-# -----------------------------
-# Senaryo verisi
-# -----------------------------
 steps = [
     {
-        "title": "1. Fon İhtiyacının Doğması",
-        "actor": "Firma Sahibi / Şirket Yönetimi",
-        "what": f"{firma_adi}, {sektor.lower()} alanında büyümek istemektedir. Şirketin {fon_ihtiyaci:,.0f} TL tutarında kaynağa ihtiyacı vardır.",
-        "why": "Şirket büyüme, yatırım, borç azaltma veya kapasite artırımı için finansman arar.",
-    },
-    {
-        "title": "2. Halka Arz Kararı",
+        "title": "Fon İhtiyacının Doğması",
         "actor": "Şirket Yönetimi",
-        "what": f"Şirket, banka kredisi yerine sermaye piyasasından fon toplamak için halka arz seçeneğini değerlendirir.",
-        "why": "Halka arz, uzun vadeli kaynak sağlama ve şirketin bilinirliğini artırma açısından avantaj sağlayabilir.",
+        "what": f"{firma_adi}, büyümek ve yatırım yapmak için {fon_ihtiyaci} tutarında kaynağa ihtiyaç duyar.",
+        "why": "Şirketin üretim kapasitesini artırması ve büyüme planlarını finanse etmesi gerekir."
     },
     {
-        "title": "3. Aracı Kurum ile Çalışma",
+        "title": "Halka Arz Kararının Verilmesi",
+        "actor": "Şirket Yönetimi",
+        "what": "Şirket, banka kredisi yerine sermaye piyasasından fon toplamaya karar verir.",
+        "why": "Halka arz, uzun vadeli fon sağlama ve şirketin kurumsal görünürlüğünü artırma fırsatı sunar."
+    },
+    {
+        "title": "Aracı Kurum ile Sürecin Planlanması",
         "actor": "Aracı Kurum",
-        "what": "Şirket, halka arz sürecini planlamak için bir aracı kurumla çalışır. Fiyatlama, talep toplama yapısı ve satış yöntemi belirlenir.",
-        "why": "Aracı kurum, yatırımcıya ulaşma ve süreci teknik olarak yönetme açısından kritik rol oynar.",
+        "what": "Şirket, halka arzın fiyatlama, satış ve organizasyon süreci için bir aracı kurumla çalışır.",
+        "why": "Aracı kurum, sürecin teknik ve finansal açıdan doğru kurgulanmasını sağlar."
     },
     {
-        "title": "4. SPK, İzahname ve KAP Süreci",
+        "title": "İzahname, SPK ve Kamuyu Aydınlatma Süreci",
         "actor": "SPK ve KAP",
-        "what": "Şirketin finansal ve hukuki bilgileri hazırlanır, izahname oluşturulur ve gerekli açıklamalar kamuya duyurulur.",
-        "why": "Bu aşama yatırımcının doğru bilgiye ulaşması ve sürecin güvenli işlemesi için gereklidir.",
+        "what": "Şirkete ait finansal ve hukuki bilgiler hazırlanır, izahname oluşturulur ve kamuya gerekli açıklamalar yapılır.",
+        "why": "Yatırımcıların doğru bilgiye ulaşması ve sürecin güvenli yürütülmesi için bu aşama zorunludur."
     },
     {
-        "title": "5. Talep Toplama",
+        "title": "Talep Toplama",
         "actor": "Yatırımcılar",
-        "what": "Yatırımcılar halka arza katılarak şirketin paylarına talepte bulunur.",
-        "why": "Şirketin aradığı fon, yatırımcıların gösterdiği ilgiyle toplanır.",
+        "what": "Yatırımcılar halka arza katılarak şirket paylarına talepte bulunur.",
+        "why": "Şirketin fon toplaması, yatırımcıların gösterdiği ilgiyle mümkün hale gelir."
     },
     {
-        "title": "6. Borsada İşlem Görme",
+        "title": "Borsada İşlem Görmeye Başlama",
         "actor": "Borsa İstanbul",
         "what": f"Halka arz tamamlandıktan sonra {firma_adi} payları borsada işlem görmeye başlar.",
-        "why": "Borsa, şeffaf fiyat oluşumu ve ikincil piyasa likiditesi sağlar.",
+        "why": "Bu aşama şirket paylarının alınıp satılabildiği ikincil piyasa yapısını oluşturur."
     },
     {
-        "title": "7. Takas ve Kayıt Süreci",
+        "title": "Takas ve Kayıt Sürecinin Tamamlanması",
         "actor": "Takasbank ve MKK",
-        "what": "İşlem sonrası takas yapılır, payların mülkiyeti kaydi sistemde yatırımcı bazında izlenir.",
-        "why": "İşlem güvenliği, kayıt düzeni ve mülkiyetin doğru takibi açısından bu aşama zorunludur.",
-    },
-]
-
-quiz = [
-    {
-        "question": "Şirket neden halka arz yolunu seçmiş olabilir?",
-        "options": [
-            "Yalnızca vergi ödememek için",
-            "Uzun vadeli fon sağlamak için",
-            "KAP’ı kapatmak için",
-            "Takasbank yerine geçmek için",
-        ],
-        "correct": "Uzun vadeli fon sağlamak için",
-    },
-    {
-        "question": "Halka arz sürecinde fiyatlama ve satış organizasyonunda kim öne çıkar?",
-        "options": ["MKK", "Aracı Kurum", "KAP", "Yatırımcı"],
-        "correct": "Aracı Kurum",
-    },
-    {
-        "question": "Kamuyu aydınlatma ve bilgi paylaşımı açısından hangi yapı önemlidir?",
-        "options": ["KAP", "Borsa İstanbul", "Takasbank", "Portföy Yönetim Şirketi"],
-        "correct": "KAP",
-    },
-    {
-        "question": "İşlem sonrası takas ve kayıt sürecinde hangi kurumlar öne çıkar?",
-        "options": [
-            "SPK ve Yatırımcı",
-            "Takasbank ve MKK",
-            "Borsa İstanbul ve KAP",
-            "Aracı Kurum ve Portföy Yönetim Şirketi",
-        ],
-        "correct": "Takasbank ve MKK",
-    },
+        "what": "İşlem sonrası takas gerçekleştirilir ve payların mülkiyeti kaydi sistemde yatırımcı bazında izlenir.",
+        "why": "İşlemlerin güvenli ve kayıtlı biçimde tamamlanması için bu aşama gereklidir."
+    }
 ]
 
 # -----------------------------
-# Hero
+# State
 # -----------------------------
-st.markdown(f"""
+if "step_index" not in st.session_state:
+    st.session_state.step_index = 0
+
+current = steps[st.session_state.step_index]
+
+# -----------------------------
+# Başlık
+# -----------------------------
+st.markdown("""
 <div class="hero">
-    <h1>📈 Halka Arz Süreci Uygulaması</h1>
-    <p>
-        Bu uygulamada bir firma sahibinin fon ihtiyacını <b>halka arz</b> yoluyla
-        karşılaması adım adım gösterilmektedir.
-    </p>
+    <h1>📈 Halka Arz Süreci</h1>
+    <p>Bir firmanın fon ihtiyacını halka arz yoluyla nasıl karşıladığı adım adım gösterilmektedir.</p>
 </div>
 """, unsafe_allow_html=True)
 
 # -----------------------------
-# Üst bilgi kartları
+# Firma bilgisi
 # -----------------------------
 col1, col2, col3 = st.columns(3)
 
 with col1:
     st.markdown(f"""
-    <div class="card">
-        <div class="small-title">Firma</div>
-        <div class="big-value">{firma_adi}</div>
+    <div class="info-card">
+        <b>Firma</b><br>{firma_adi}
     </div>
     """, unsafe_allow_html=True)
 
 with col2:
     st.markdown(f"""
-    <div class="card">
-        <div class="small-title">Sektör</div>
-        <div class="big-value">{sektor}</div>
+    <div class="info-card">
+        <b>Fon İhtiyacı</b><br>{fon_ihtiyaci}
     </div>
     """, unsafe_allow_html=True)
 
 with col3:
     st.markdown(f"""
-    <div class="card">
-        <div class="small-title">Fon İhtiyacı</div>
-        <div class="big-value">{fon_ihtiyaci:,.0f} TL</div>
+    <div class="info-card">
+        <b>Fonun Kullanım Amacı</b><br>{fon_amaci}
     </div>
     """, unsafe_allow_html=True)
 
-st.markdown("### Fonun Kullanım Amacı")
-st.info(fon_amaci)
+# -----------------------------
+# Adım göstergesi
+# -----------------------------
+st.progress((st.session_state.step_index + 1) / len(steps))
+st.caption(f"Adım {st.session_state.step_index + 1} / {len(steps)}")
 
 # -----------------------------
-# Sekmeler
+# Süreç kartı
 # -----------------------------
-tab1, tab2 = st.tabs(["🔄 Süreç Akışı", "🧠 Mini Quiz"])
+st.markdown(f"""
+<div class="step-card">
+    <div class="step-number">Halka Arz Süreci</div>
+    <div class="step-title">{current['title']}</div>
+    <p><span class="actor">Bu aşamadaki temel aktör:</span> {current['actor']}</p>
+    <p><b>Ne oluyor?</b><br>{current['what']}</p>
+    <p><b>Neden önemli?</b><br>{current['why']}</p>
+</div>
+""", unsafe_allow_html=True)
 
-# -----------------------------
-# TAB 1 - Süreç
-# -----------------------------
-with tab1:
-    st.subheader("Halka Arz Sürecinin Akışı")
-
-    step_titles = [step["title"] for step in steps]
-    current_step = st.select_slider(
-        "Aşamayı seç",
-        options=step_titles,
-        value=step_titles[0]
-    )
-
-    index = step_titles.index(current_step)
-    selected = steps[index]
-
-    st.progress((index + 1) / len(steps))
-
-    st.markdown(f"""
-    <div class="step-card">
-        <h3>{selected['title']}</h3>
-        <p><b>Bu aşamadaki ana aktör:</b> {selected['actor']}</p>
-        <p><b>Senaryoda ne oluyor?</b><br>{selected['what']}</p>
-        <p><b>Neden önemli?</b><br>{selected['why']}</p>
-    </div>
-    """, unsafe_allow_html=True)
-
-    st.markdown("### Sürecin Kısa Özeti")
-    st.markdown(
-        "Firma Sahibi → Aracı Kurum → SPK / KAP → Yatırımcı → Borsa İstanbul → Takasbank / MKK"
-    )
+st.markdown("")
 
 # -----------------------------
-# TAB 2 - Quiz
+# Butonlar
 # -----------------------------
-with tab2:
-    st.subheader("Mini Quiz")
+left, center, right = st.columns([1, 2, 1])
 
-    answers = []
-    for i, q in enumerate(quiz):
-        answer = st.radio(
-            f"{i+1}. {q['question']}",
-            q["options"],
-            index=None,
-            key=f"quiz_{i}"
-        )
-        answers.append(answer)
+with left:
+    if st.button("⬅ Önceki Adım", use_container_width=True):
+        if st.session_state.step_index > 0:
+            st.session_state.step_index -= 1
+            st.rerun()
 
-    if st.button("Sonuçları Göster"):
-        score = 0
-        for answer, q in zip(answers, quiz):
-            if answer == q["correct"]:
-                score += 1
+with right:
+    if st.button("Sonraki Adım ➡", use_container_width=True):
+        if st.session_state.step_index < len(steps) - 1:
+            st.session_state.step_index += 1
+            st.rerun()
 
-        st.success(f"Puanın: {score}/{len(quiz)}")
-
-        if score == len(quiz):
-            st.balloons()
-
-        for i, q in enumerate(quiz):
-            st.write(f"**{i+1}. soru doğru cevap:** {q['correct']}")
+# -----------------------------
+# Süreç özeti
+# -----------------------------
+st.markdown("### Kısa Süreç Özeti")
+st.markdown(
+    "Fon ihtiyacı → Halka arz kararı → Aracı kurum → SPK / KAP → Talep toplama → Borsa İstanbul → Takasbank / MKK"
+)
